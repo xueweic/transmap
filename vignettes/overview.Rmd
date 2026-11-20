@@ -1,0 +1,16 @@
+---
+title: "TransMap package overview"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{TransMap package overview}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+TransMap studies distal genetic effects at the level of individual genes,
+local co-expression programs, and global genetically coordinated programs.
+
+This development vignette documents the package layout. Executable examples
+will be added alongside the validated analysis functions and example data.
+Manuscript figure notebooks and data manifests are maintained separately in
+[`transmap_manuscript`](https://github.com/xueweic/transmap_manuscript).

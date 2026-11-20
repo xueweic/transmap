@@ -1,0 +1,22 @@
+Package: transmap
+Type: Package
+Title: Multiscale Mapping of Trans-Regulatory QTL
+Version: 0.0.0.9000
+Authors@R: person("Xuewei", "Cao", email = "xc2270@cumc.columbia.edu", role = c("aut", "cre"))
+Description: Provides the development package structure for TransMap, a
+    framework for analyzing distal genetic regulation of individual genes and
+    coordinated expression programs across cell types. Validated analysis
+    functions and examples will be added before release.
+License: file LICENSE
+URL: https://github.com/xueweic/transmap, https://xueweic.github.io/transmap/
+BugReports: https://github.com/xueweic/transmap/issues
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends: R (>= 4.0.0)
+Suggests:
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+VignetteBuilder: knitr
+Config/testthat/edition: 3
