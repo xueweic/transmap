@@ -3,6 +3,32 @@ url: https://xueweic.github.io/transmap/
 template:
   bootstrap: 5
 
+reference:
+  - title: Local programs
+    contents:
+      - r_hotspot
+      - transmap_local
+  - title: Global programs
+    contents:
+      - w_construction
+      - r_transcca
+      - transmap_global
+  - title: Null testing of global programs
+    contents:
+      - generate_null_data
+      - transcca_null
+      - transcca_pvalue
+      - transcca_plot
+  - title: Data
+    contents:
+      - transmap_example
+
+articles:
+  - title: Workflows
+    contents:
+      - transmap_local
+      - transmap_global
+
 navbar:
   structure:
     left: [reference, articles]

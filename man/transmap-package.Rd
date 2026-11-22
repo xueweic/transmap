@@ -6,19 +6,46 @@
 \alias{transmap-package}
 \title{transmap: Multiscale trans-QTL analysis}
 \description{
-Development package for TransMap. Analysis functions will be documented here
-as they are incorporated into the package.
+transmap builds program phenotypes for trans-QTL mapping at two scales.
+}
+\details{
+Local programs:
+\itemize{
+\item \code{\link[=r_hotspot]{r_hotspot()}} detects co-expression gene modules (R implementation of
+Hotspot).
+\item \code{\link[=transmap_local]{transmap_local()}} turns gene modules into program phenotypes with WPC
+(default), PC1, aPC or AUCell.
+}
+
+Global programs:
+\itemize{
+\item \code{\link[=w_construction]{w_construction()}} builds the variant-gene matrix W from a
+transBoost-style \code{data_list}.
+\item \code{\link[=r_transcca]{r_transcca()}} identifies sparse global programs from W.
+\item \code{\link[=transmap_global]{transmap_global()}} turns program gene loadings into program phenotypes.
+\item \code{\link[=generate_null_data]{generate_null_data()}}, \code{\link[=transcca_null]{transcca_null()}}, \code{\link[=transcca_pvalue]{transcca_pvalue()}} and
+\code{\link[=transcca_plot]{transcca_plot()}} compare programs with a simulated null distribution.
+}
+
+All functions take in-memory matrices; reading files, covariate selection
+and chromosome-specific filtering are left to the calling pipeline.
 }
 \seealso{
 Useful links:
 \itemize{
   \item \url{https://github.com/xueweic/transmap}
+  \item \url{https://xueweic.github.io/transmap/}
   \item Report bugs at \url{https://github.com/xueweic/transmap/issues}
 }
 
 }
 \author{
 \strong{Maintainer}: Xuewei Cao \email{xc2270@cumc.columbia.edu}
+
+Authors:
+\itemize{
+  \item Xuewei Cao \email{xc2270@cumc.columbia.edu}
+}
 
 }
 \keyword{internal}
