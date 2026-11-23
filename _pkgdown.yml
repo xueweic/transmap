@@ -1,14 +1,86 @@
-url: https://xueweic.github.io/transmap/
+url: https://xueweic.github.io/transmap
 
 template:
   bootstrap: 5
 
 navbar:
-  structure:
-    left: [reference, articles]
-    right: [github]
-  components:
-    github:
-      icon: fa-github
-      aria-label: GitHub repository
+  left:
+    - text: "News"
+      href: articles/announcements.html
+    - text: "Installation"
+      href: articles/installation.html
+    - text: "Tutorials"
+      href: articles/index.html
+    - text: "Functions"
+      href: reference/index.html
+  right:
+    - icon: fa-github
       href: https://github.com/xueweic/transmap
+      aria-label: GitHub repository
+
+articles:
+  - title: Getting Started with TransMap
+    desc: "Input data formats and an end-to-end example that builds local and global program phenotypes."
+    contents:
+    - Input_Data_Format
+    - TransMap_Workflow
+
+  - title: "TransMap-local: Co-regulatory Programs"
+    desc: "Tutorials on detecting co-expression gene modules with Hotspot and summarizing them into local program phenotypes."
+    contents:
+    - Hotspot_Module_Detection
+    - Local_Program_Phenotypes
+
+  - title: "TransMap-global: Genome-wide Coordinated Programs"
+    desc: "Tutorials on identifying sparse global programs with transCCA, testing them against a null distribution, and building global program phenotypes."
+    contents:
+    - Constructing_W_Matrix
+    - Global_Program_Identification
+    - Global_Program_Null_Testing
+    - Global_Program_Phenotypes
+
+  - title: Concepts and Methodology
+    desc: "The statistical ideas behind the multi-scale TransMap framework."
+    contents:
+    - Conceptual_TransMap_Framework
+
+  - title: Downstream Analyses
+    desc: "Using program phenotypes as outcomes in trans-QTL mapping, fine-mapping and colocalization."
+    contents:
+    - Trans_QTL_Mapping_with_Programs
+
+  - title: internal
+    contents:
+    - announcements
+    - installation
+
+reference:
+  - title: "Example Data"
+    desc: "Simulated data used in the examples and tutorials."
+    contents:
+    - transmap_example
+
+  - title: "TransMap-local"
+    desc: "Detect co-expression gene modules and build local program phenotypes."
+    contents:
+    - r_hotspot
+    - transmap_local
+
+  - title: "TransMap-global"
+    desc: "Identify sparse global programs from variant-gene association statistics and build global program phenotypes."
+    contents:
+    - w_construction
+    - r_transcca
+    - transmap_global
+
+  - title: "Null testing of global programs"
+    desc: "Simulate null data and assess global program strengths."
+    contents:
+    - generate_null_data
+    - transcca_null
+    - transcca_pvalue
+    - transcca_plot
+
+  - title: "Package"
+    contents:
+    - transmap-package

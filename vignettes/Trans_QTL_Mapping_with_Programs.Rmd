@@ -1,0 +1,152 @@
+---
+title: "Trans-QTL Mapping with Program Phenotypes"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Trans-QTL Mapping with Program Phenotypes}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(transmap)
+data(transmap_example)
+```
+
+`transmap` builds program phenotypes; association testing, fine-mapping and
+colocalization are done with other tools. This vignette shows how program
+phenotypes fit into a *trans*-QTL analysis, and the design choices that keep
+the analysis valid.
+
+# 1. A simulated *trans* effect
+
+We simulate genotypes for 200 variants on chromosome 5 and add a *trans* effect
+of one variant, `chr5:50000`, on the genes of the first simulated module.
+
+```{r simulate}
+set.seed(1)
+Y <- transmap_example$Y
+n <- nrow(Y)
+p <- 200
+G <- sapply(runif(p, 0.05, 0.5), function(f) rbinom(n, 2, f))
+dimnames(G) <- list(rownames(Y), sprintf("chr5:%d", seq_len(p) * 1000))
+causal <- "chr5:50000"
+module_1 <- transmap_example$modules$module_1
+Y[, module_1] <- Y[, module_1] + 0.3 * as.numeric(scale(G[, causal]))
+```
+
+# 2. Build program phenotypes
+
+```{r programs}
+loc <- transmap_local(Y, transmap_example$modules,
+                      null_z = transmap_example$null_z,
+                      covariates = transmap_example$covariates)
+colnames(loc$scores)
+```
+
+# 3. Marginal association scan
+
+The phenotypes are ordinary quantitative outcomes. A simple marginal scan
+computes, for every variant and phenotype, the z-score of the correlation
+test:
+
+```{r scan}
+assoc_z <- function(G, P) {
+  r <- cor(G, P)
+  r * sqrt(nrow(G) - 2) / sqrt(1 - r^2)
+}
+Z <- assoc_z(G, loc$scores)
+dim(Z)
+top <- apply(abs(Z), 2, which.max)
+data.frame(phenotype = colnames(Z),
+           top_variant = rownames(Z)[top],
+           abs_z = round(apply(abs(Z), 2, max), 2))
+```
+
+The first whitened component of `module_1` has its strongest association at
+the simulated causal variant. In real analyses, use a dedicated QTL mapping
+tool (for example, tensorQTL or QTLtools) with the program phenotypes as the
+phenotype matrix, and adjust for covariates either there or through the
+`covariates` argument of `transmap_local()` and `transmap_global()`.
+
+# 4. Leave-one-chromosome-out
+
+A variant can affect genes on its own chromosome in *cis*. If those genes are
+part of a program, a *cis* effect can appear as a *trans* effect on the
+program. To avoid this, build the phenotypes used to test variants on a
+chromosome from genes on other chromosomes only:
+
+```{r loco, eval = FALSE}
+# gene_chr: chromosome of every column of Y
+for (chr in paste0("chr", 1:22)) {
+  Y_chr <- Y[, gene_chr != chr]
+  hs_chr <- r_hotspot(Y_chr)
+  loc_chr <- transmap_local(Y_chr, hs_chr, null_z = null_z,
+                            covariates = covariates)
+  # map variants on `chr` against loc_chr$scores
+}
+```
+
+For TransMap-global, the `exclude` argument of `r_transcca()` masks variant-gene
+pairs on the same chromosome, and the statistics can be subset to other
+chromosomes before building `data_list` (see
+[Constructing the W Matrix](Constructing_W_Matrix.html)).
+
+# 5. Avoiding selection bias for global programs
+
+Global programs are chosen because their genes associate with particular
+variants. Testing the same variants for association with the same program in
+the same samples reuses that information, and the resulting p-values are too
+small. Learn the programs and test their phenotypes on independent data, for
+example:
+
+- split the samples, learn programs with `r_transcca()` in one part and score
+  and map them with `transmap_global()` in the other;
+- learn programs from one set of chromosomes and map variants on the others.
+
+```{r split, eval = FALSE}
+set.seed(1)
+idx <- sample(nrow(Y), nrow(Y) / 2)
+# learn programs in the first half
+prog <- r_transcca(list(G = scale(G[idx, ]), E = scale(Y[idx, ])),
+                   K = 2, sumabs = 0.25)
+# score and map them in the second half
+glob <- transmap_global(Y[-idx, ], prog)
+Z_global <- assoc_z(G[-idx, ], glob$scores)
+```
+
+Local programs are built from expression and null *trans* z-scores, not from
+the associations of the variants being tested, so they are not selected for
+association with those variants.
+
+# 6. Fine-mapping and colocalization
+
+Program phenotypes can be fine-mapped like any other quantitative trait, for
+example with `susieR`:
+
+```{r susie, eval = FALSE}
+library(susieR)
+fit <- susie(X = G, y = loc$scores[, "module_1_WPC1"], L = 10)
+fit$sets$cs
+```
+
+Because each scale gives a different view of the same *trans* effect, the
+phenotypes can be analysed jointly by multi-trait colocalization, for example
+with [ColocBoost](https://statfungen.github.io/colocboost/), to find variants
+shared across *cis*-eGenes, *trans*-eGenes and *trans* programs:
+
+```{r colocboost, eval = FALSE}
+library(colocboost)
+# Phenotypes from all scales, for the same samples as the genotypes G
+traits <- cbind(Y[, module_1], loc$scores)
+res <- colocboost(X = G, Y = traits)
+```
+
+For summary statistics from large cohorts, both tools also accept z-scores with
+an LD reference instead of individual-level data.

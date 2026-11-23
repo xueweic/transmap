@@ -1,0 +1,176 @@
+---
+title: "Local Program Phenotypes"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Local Program Phenotypes}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(transmap)
+data(transmap_example)
+Y <- transmap_example$Y
+hs <- r_hotspot(Y, min_gene = 5)
+```
+
+`transmap_local()` summarizes the expression of each gene module into one or
+more program phenotypes. Four constructors are available:
+
+| `method` | Phenotypes per module | Needs |
+|---|---|---|
+| `"WPC"` (default) | All whitened components with eigenvalue > 1 | `null_z` |
+| `"PC1"` | First principal component | - |
+| `"aPC"` | Adaptive number of principal components | - |
+| `"AUCell"` | AUCell enrichment score | Bioconductor `AUCell` |
+
+# 1. Whitened principal components (WPC)
+
+### Why whitening
+
+Genes in a module are correlated for reasons unrelated to the *trans* effect
+being mapped: shared regulation by many small effects, technical factors and
+cell-type composition. Write the expression covariance of a module as
+
+$$\Sigma_Y = \Sigma_{\text{genetic}} + \Sigma_{\text{noise}}.$$
+
+WPC looks for gene weights $w$ that maximize expression variance relative to
+the correlation expected without genetic effects, $R_{\text{noise}}$:
+
+$$\max_w \frac{w^\top \Sigma_Y w}{w^\top R_{\text{noise}} w}.$$
+
+This is solved by whitening the standardized expression by
+$R_{\text{noise}}^{-1/2}$ and taking principal components. A component with
+eigenvalue above 1 carries more variance than the null correlation explains,
+and all such components are kept.
+
+### Estimating the null correlation
+
+$R_{\text{noise}}$ is estimated from null *trans* z-scores (`null_z`, variants
+$\times$ genes): the correlation across variants whose largest absolute
+z-score over the module genes is below 2 (relaxed to 3 if too few remain;
+the identity matrix if still too few).
+
+```{r wpc}
+wpc <- transmap_local(Y, hs, method = "WPC", null_z = transmap_example$null_z)
+dim(wpc$scores)
+wpc$summary
+```
+
+`summary` reports, per module, the genes given (`n_genes`) and used
+(`n_used`), the number of phenotypes kept (`k`), the threshold used to select
+null variants and the number of null variants.
+
+```{r wpc-eigen}
+round(wpc$eigenvalues, 3)
+```
+
+`loadings` holds the gene weights of each component:
+
+```{r wpc-loadings}
+round(wpc$loadings[[1]][1:5, ], 3)
+```
+
+`null_z` may also be given as a list with element `z`, the format of the null
+z-score files used in the TransMap pipeline:
+
+```{r wpc-list}
+wpc_list <- transmap_local(Y, hs, null_z = list(z = transmap_example$null_z))
+identical(wpc_list$scores, wpc$scores)
+```
+
+# 2. First principal component (PC1)
+
+`PC1` keeps the first principal component of the standardized module
+expression: one phenotype per module, without null z-scores.
+
+```{r pc1}
+pc1 <- transmap_local(Y, hs, method = "PC1")
+dim(pc1$scores)
+round(pc1$eigenvalues, 2)
+```
+
+# 3. Adaptive principal components (aPC)
+
+`aPC` adds components while (i) the cumulative variance of the previous
+components is below `max_cumvar` and (ii) the next component explains more
+variance than the Marchenko-Pastur bound $(1 + \sqrt{p/n})^2 / p$, where $p$
+is the number of genes and $n$ the number of samples.
+
+```{r apc}
+apc <- transmap_local(Y, hs, method = "aPC", max_cumvar = 0.8)
+apc$summary[, c("module", "n_used", "k")]
+```
+
+# 4. AUCell
+
+`AUCell` scores each module by the area under its gene recovery curve, using
+gene rankings of the full expression matrix. `auc_max_rank` sets the fraction
+of top-ranked genes considered. AUCell breaks ties at random, so set a seed.
+
+```{r aucell, eval = requireNamespace("AUCell", quietly = TRUE)}
+set.seed(1)
+auc <- transmap_local(Y, hs, method = "AUCell", auc_max_rank = 0.2)
+head(round(auc$scores, 3), 3)
+```
+
+# 5. Covariates
+
+With `covariates`, covariates and an intercept are regressed out of the
+expression before programs are built (and, for AUCell, also out of the
+scores). Only samples shared by `Y` and `covariates` are kept.
+
+```{r covariates}
+adj <- transmap_local(Y, hs, null_z = transmap_example$null_z,
+                      covariates = transmap_example$covariates)
+dim(adj$scores)
+```
+
+# 6. Modules from other sources
+
+Any named list of gene sets can be used, for example modules from WGCNA or
+curated pathways. A single character vector is treated as one module.
+
+```{r custom}
+custom <- transmap_local(Y, transmap_example$modules, method = "PC1")
+colnames(custom$scores)
+
+one <- transmap_local(Y, paste0("GENE0", 1:9), method = "PC1")
+colnames(one$scores)
+```
+
+Genes not in `Y` are ignored. A module with a single available gene uses that
+gene's expression as its phenotype.
+
+# 7. Comparing constructors
+
+The first phenotype of each constructor captures the shared module signal, so
+the constructors agree closely on the leading component (up to sign):
+
+```{r compare}
+round(abs(cor(wpc$scores[, "hotspot_module_1_WPC1"],
+              pc1$scores[, "hotspot_module_1"])), 3)
+```
+
+WPC additionally returns further components whose variance exceeds the null
+expectation. Recommendations:
+
+- Use **WPC** (default) when null *trans* z-scores are available. It accounts
+  for background gene-gene correlation and keeps every component that exceeds
+  it.
+- Use **PC1** for a single, simple summary per module.
+- Use **aPC** when modules may carry several independent signals but no null
+  z-scores are available.
+- Use **AUCell** for rank-based enrichment scores that are robust to the scale
+  of expression.
+
+The columns of `scores` are the local program phenotypes. See
+[Trans-QTL Mapping with Program Phenotypes](Trans_QTL_Mapping_with_Programs.html)
+for how to use them.

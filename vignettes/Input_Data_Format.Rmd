@@ -1,0 +1,150 @@
+---
+title: "Input Data Format"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Input Data Format}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(transmap)
+data(transmap_example)
+```
+
+This vignette documents the standard input data formats of `transmap`. All
+functions take in-memory matrices. Reading files, quality control, covariate
+selection and chromosome-specific filtering are left to the calling pipeline.
+
+# 1. Expression matrix
+
+All program constructors take an expression matrix `Y`:
+
+- `Y` is an $N \times G$ numeric matrix with $N$ samples in rows and $G$ genes
+  in columns.
+- Sample row names and gene column names are required. Genes are matched to
+  modules, programs and z-scores by name.
+- Genes with zero variance must be removed before `r_hotspot()`;
+  `transmap_local()` drops them automatically.
+
+```{r expression}
+Y <- transmap_example$Y
+dim(Y)
+Y[1:3, 1:5]
+```
+
+The expression matrix can be bulk expression, pseudo-bulk expression of one
+cell type, or any other molecular phenotype measured across the same samples
+(for example, protein or metabolite abundances).
+
+# 2. Covariates
+
+`transmap_local()` and `transmap_global()` accept an optional covariate matrix:
+
+- `covariates` is a numeric matrix with sample row names (for example, genotype
+  principal components, sex, age and batch).
+- Samples are matched to `Y` by row name and only shared samples are kept.
+- Covariates and an intercept are regressed out of every gene before programs
+  are built.
+
+```{r covariates}
+head(transmap_example$covariates, 3)
+```
+
+`r_hotspot()` does not take covariates; regress them out of `Y` before module
+detection if needed.
+
+# 3. Gene modules (TransMap-local)
+
+`transmap_local()` accepts gene modules in three forms:
+
+- the result of `r_hotspot()`;
+- a named list of character vectors, one per module;
+- a single character vector of genes (treated as one module).
+
+```{r modules}
+str(transmap_example$modules)
+```
+
+Genes that are not in `Y` are ignored.
+
+# 4. Null trans z-scores (WPC)
+
+The default local constructor, whitened principal components (WPC), needs
+null *trans* z-scores to estimate the gene-gene correlation expected without
+genetic effects:
+
+- `null_z` is a numeric matrix with variants in rows and genes in columns
+  (gene column names required), or a list with element `z` holding that matrix.
+- It must contain every module gene present in `Y`.
+- Only variants whose largest absolute z-score across the module genes is below
+  2 (relaxed to 3 if too few remain) are used.
+
+```{r null-z}
+dim(transmap_example$null_z)
+transmap_example$null_z[1:3, 1:4]
+```
+
+In practice, `null_z` holds marginal *trans* z-scores of a large set of
+variants, most of which have no effect on the module genes.
+
+# 5. Association statistics (TransMap-global)
+
+`r_transcca()` and `w_construction()` take a named list `data_list` of
+variant-gene association statistics, in the format of transBoost's `data.list`.
+Variants are in rows and genes in columns; matrices need row and column names.
+The list holds exactly one of the following sets of elements:
+
+| `data_list` elements | Description | $W$ used by transCCA |
+|---|---|---|
+| `Z`, `N` | Marginal z-scores and sample size | $Z / \sqrt{N - 2 + Z^2}$ |
+| `Beta` | Standardized effect sizes | `Beta` |
+| `Beta`, `N` + one of `Pvalue`, `Z`, `seBeta` | Unstandardized effect sizes | `Beta` rescaled by an estimated genotype scale |
+| `log2FC`, `N1`, `N0` | Differential expression between two groups | $\sqrt{N_1 N_0} / (N_1 + N_0) \cdot \log_2 FC$ |
+| `G`, `E` | Individual-level genotypes and expression | $G^\top E / N$ |
+| `Sigma_GE` | A precomputed variant-gene matrix | `Sigma_GE` |
+
+Optional elements:
+
+- `MAF` (one value per variant) and `sdY` (one value per gene) rescale `Z, N`
+  or `Beta` input to the effect scale.
+- `Sigma_GG` (variant correlation) and/or `Sigma_EE` (gene correlation) whiten
+  $W$ as $\Sigma_{GG}^{-1/2} W \Sigma_{EE}^{-1/2}$. With `G` and `E`,
+  `"insample"` uses the sample covariance.
+
+The simplest input is a z-score matrix with its sample size:
+
+```{r data-list}
+data_list <- list(Z = transmap_example$z, N = transmap_example$n)
+dim(data_list$Z)
+data_list$Z[1:3, 1:4]
+```
+
+See [Constructing the W Matrix](Constructing_W_Matrix.html) for an example of
+every input type, whitening and *cis* masking.
+
+# 6. Example data
+
+`transmap_example` is a small simulated data set used throughout the
+tutorials:
+
+- `Y`: 300 samples $\times$ 60 genes. Genes `GENE01`-`GENE12`,
+  `GENE13`-`GENE24` and `GENE25`-`GENE36` form three co-expression modules;
+  the other genes are noise.
+- `covariates`: 300 $\times$ 2 covariate matrix.
+- `modules`: the three simulated modules.
+- `null_z`: 400 variants $\times$ 60 genes of null *trans* z-scores.
+- `z`: 150 variants $\times$ 60 genes of marginal *trans* z-scores with two
+  global programs: variants 1-10 affect `GENE01`-`GENE12`, and variants 11-20
+  affect `GENE25`-`GENE36` and `GENE40`-`GENE45`.
+- `n`: the sample size of `z`.
+
+The script that generates the data is `data-raw/transmap_example.R` in the
+package source.

@@ -1,22 +1,36 @@
 Package: transmap
 Type: Package
 Title: Multiscale Mapping of Trans-Regulatory QTL
-Version: 0.0.0.9000
+Version: 0.1.0
 Authors@R: person("Xuewei", "Cao", email = "xc2270@cumc.columbia.edu", role = c("aut", "cre"))
-Description: Provides the development package structure for TransMap, a
-    framework for analyzing distal genetic regulation of individual genes and
-    coordinated expression programs across cell types. Validated analysis
-    functions and examples will be added before release.
+Description: Builds program phenotypes for trans-QTL mapping at two scales.
+    Local programs summarize co-expression gene modules, detected with an R
+    implementation of Hotspot, by whitened principal components (WPC), the
+    first or adaptively chosen principal components, or AUCell scores. Global
+    programs are sparse gene sets jointly associated with trans variants,
+    identified by penalized matrix decomposition of marginal trans-QTL
+    z-scores (transCCA).
 License: file LICENSE
 URL: https://github.com/xueweic/transmap, https://xueweic.github.io/transmap/
 BugReports: https://github.com/xueweic/transmap/issues
 Encoding: UTF-8
+LazyData: true
+LazyDataCompression: xz
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Depends: R (>= 4.0.0)
+Imports:
+    graphics,
+    MASS,
+    Matrix,
+    PMA,
+    RANN,
+    stats,
+    utils
 Suggests:
+    AUCell,
     knitr,
     rmarkdown,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0

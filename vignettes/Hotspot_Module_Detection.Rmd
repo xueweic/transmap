@@ -1,0 +1,158 @@
+---
+title: "Hotspot Module Detection"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Hotspot Module Detection}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(transmap)
+data(transmap_example)
+Y <- transmap_example$Y
+```
+
+TransMap-local starts from co-expression gene modules. `r_hotspot()` is an R
+implementation of Hotspot (DeTomaso and Yosef, 2021) for pre-standardized data
+(Hotspot `model = "none"`). Its steps follow the Python package `hotspot-sc`.
+
+# 1. How Hotspot finds modules
+
+1. **Sample graph.** Build a $k$-nearest-neighbour graph of samples from a
+   latent representation (by default, the standardized expression itself).
+2. **Local autocorrelation.** For every gene, test whether its expression is
+   more similar among neighbouring samples than expected by chance. This gives
+   a statistic $C$, its Z-score, a one-sided p-value and a Benjamini-Hochberg
+   FDR.
+3. **Local correlation.** For the autocorrelated genes (FDR below `fdr`),
+   compute pairwise local correlation Z-scores: whether two genes co-vary
+   across neighbouring samples.
+4. **Clustering.** Cluster genes by average linkage on the local correlation
+   Z-scores and cut the tree into modules of at least `min_gene` genes,
+   stopping joins whose Z-score is not significant at `fdr`.
+5. **Module scores.** Score each module by the first principal component of
+   its neighbour-smoothed expression.
+
+# 2. Run Hotspot
+
+```{r run}
+hs <- r_hotspot(Y, min_gene = 5)
+names(hs)
+```
+
+```{r modules}
+lengths(hs$modules)
+hs$modules
+```
+
+The simulated modules are `GENE01`-`GENE12`, `GENE13`-`GENE24` and
+`GENE25`-`GENE36`; Hotspot recovers all three. A small fourth module is formed
+from noise genes because `min_gene = 5` is permissive for this small example.
+
+# 3. Inspect the results
+
+### Gene autocorrelation
+
+`autocorrelation` reports every gene, sorted by decreasing Z-score:
+
+```{r autocorrelation}
+head(hs$autocorrelation)
+sum(hs$autocorrelation$FDR < 0.05)
+```
+
+### Module assignment
+
+`assignment` maps each autocorrelated gene to its module; `-1` marks genes that
+are autocorrelated but not assigned to any module.
+
+```{r assignment}
+table(hs$assignment)
+```
+
+### Local correlation
+
+`local_correlation_z` holds the pairwise local correlation Z-scores of the
+autocorrelated genes. Ordering genes by module shows the block structure:
+
+```{r local-correlation, fig.width = 5.5, fig.height = 5}
+ord <- order(hs$assignment, decreasing = TRUE)
+lcz <- hs$local_correlation_z[ord, ord]
+lim <- max(abs(lcz))
+image(lcz, col = hcl.colors(50, "Blue-Red 3"), zlim = c(-lim, lim),
+      axes = FALSE, main = "Local correlation Z-scores")
+```
+
+### Module scores
+
+`module_scores` gives a Hotspot score per sample and module. These are
+diagnostics; the program phenotypes used for *trans*-QTL mapping are built by
+`transmap_local()` (see [Local Program Phenotypes](Local_Program_Phenotypes.html)).
+
+```{r module-scores}
+dim(hs$module_scores)
+round(cor(hs$module_scores), 2)
+```
+
+# 4. Key parameters
+
+### `min_gene`: minimum module size
+
+The default is 10 genes. Larger values give fewer, larger modules:
+
+```{r min-gene}
+lengths(r_hotspot(Y)$modules)
+```
+
+### `n_neighbors`: neighbourhood size
+
+The default, `floor(nrow(Y) / 2)`, is the setting used for whole-genome module
+detection in TransMap. Smaller neighbourhoods capture more local structure and
+can split modules:
+
+```{r n-neighbors}
+lengths(r_hotspot(Y, n_neighbors = 30, min_gene = 5)$modules)
+```
+
+### Other parameters
+
+- `fdr`: FDR threshold for autocorrelated genes and for joining genes into
+  modules (default 0.05).
+- `core_only = TRUE`: assign only genes in module cores and leave ambiguous
+  genes unassigned.
+- `weighted_graph = TRUE`: Gaussian kernel edge weights, with width set by
+  `neighborhood_factor`.
+- `latent`: a samples $\times$ dimensions matrix defining neighbourhoods, for
+  example expression principal components, instead of the standardized
+  expression.
+- `scale`: standardize genes before analysis (default `TRUE`).
+
+```{r latent}
+pcs <- prcomp(scale(Y))$x[, 1:10]
+hs_pc <- r_hotspot(Y, latent = pcs, min_gene = 5)
+lengths(hs_pc$modules)
+```
+
+# 5. Practical recommendations
+
+- **Covariates.** `r_hotspot()` does not adjust for covariates. Regress
+  technical and biological covariates out of `Y` first, so that modules do not
+  reflect batch or ancestry.
+- **Leave-one-chromosome-out.** When modules are used to map *trans* effects
+  of variants on one chromosome, remove genes on that chromosome before module
+  detection, so that *cis* effects do not drive the program phenotypes (see
+  [Trans-QTL Mapping with Program Phenotypes](Trans_QTL_Mapping_with_Programs.html)).
+- **Gene filtering.** Remove genes with zero variance; `r_hotspot()` stops if
+  any remain.
+
+# Reference
+
+DeTomaso D, Yosef N (2021). Hotspot identifies informative gene modules across
+modalities of single-cell genomics. *Cell Systems* 12(5):446-456.

@@ -1,0 +1,62 @@
+---
+title: "Installation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Installation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Installation
+
+### GitHub
+Install the development version from GitHub
+
+```r
+# install.packages("devtools")
+devtools::install_github("xueweic/transmap")
+```
+
+`remotes::install_github("xueweic/transmap")` works the same way.
+
+### From source
+Clone the repository and install it from the package root
+
+```bash
+git clone https://github.com/xueweic/transmap.git
+R CMD INSTALL transmap
+```
+
+## Dependencies
+
+`transmap` requires R (>= 4.0.0). The following CRAN packages are installed
+automatically: `PMA` (penalized matrix decomposition), `RANN` (nearest
+neighbour search), `MASS` and `Matrix`.
+
+The Bioconductor package `AUCell` is optional. It is needed only for
+`transmap_local(method = "AUCell")`:
+
+```r
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
+BiocManager::install("AUCell")
+```
+
+## Check the installation
+
+```{r}
+library(transmap)
+data(transmap_example)
+names(transmap_example)
+```
+
+Continue with [Input Data Format](Input_Data_Format.html) and the
+[End-to-End TransMap Workflow](TransMap_Workflow.html).

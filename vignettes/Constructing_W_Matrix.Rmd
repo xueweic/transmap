@@ -1,0 +1,165 @@
+---
+title: "Constructing the W Matrix"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Constructing the W Matrix}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(transmap)
+data(transmap_example)
+z <- transmap_example$z   # 150 variants x 60 genes
+n <- transmap_example$n
+```
+
+TransMap-global analyses a variants $\times$ genes matrix of standardized
+effects, $W$. `w_construction()` builds $W$ from a named list of association
+statistics, `data_list`, in the format of transBoost's `data.list`.
+`r_transcca()` calls it internally, so the same `data_list` (and the arguments
+`exclude`, `tol` and `sig_cut`) can be passed to `r_transcca()` directly.
+
+The attribute `"input"` of the result names the input type that was detected.
+
+# 1. Input types
+
+### Z-scores and sample size
+
+For marginal z-scores $Z_{ij}$ from $N$ samples, the standardized effect is
+
+$$W_{ij} = \frac{Z_{ij}}{\sqrt{N - 2 + Z_{ij}^2}}.$$
+
+```{r z-n}
+W <- w_construction(list(Z = z, N = n))
+attr(W, "input")
+dim(W)
+range(W)
+```
+
+`N` is a single number or a matrix with the dimension of `Z` (for example,
+when the sample size differs by gene).
+
+With `MAF` (one value per variant) and optionally `sdY` (one per gene), $W$ is
+rescaled to the effect scale, $W_{ij} \sqrt{2 f_i (1 - f_i)} / s_j$:
+
+```{r z-n-maf}
+maf <- setNames(runif(nrow(z), 0.05, 0.5), rownames(z))
+W_maf <- w_construction(list(Z = z, N = n, MAF = maf))
+attr(W_maf, "input")
+```
+
+### Standardized effect sizes
+
+Standardized effects are used as $W$ directly (or rescaled with `MAF` and
+`sdY` as above):
+
+```{r beta}
+beta_std <- z / sqrt(n)
+W_beta <- w_construction(list(Beta = beta_std))
+attr(W_beta, "input")
+```
+
+### Unstandardized effect sizes
+
+For unstandardized effects, add `N` and one of `seBeta`, `Pvalue` or `Z`. Each
+variant's genotype scale is estimated from genes with at least one p-value
+below `sig_cut` (or, if none, the 20% of genes with the smallest p-values),
+and `Beta` is rescaled by it.
+
+```{r beta-n}
+se <- matrix(0.1, nrow(z), ncol(z), dimnames = dimnames(z))
+beta <- z * se
+W_beta_n <- w_construction(list(Beta = beta, N = n, seBeta = se))
+attr(W_beta_n, "input")
+```
+
+### Differential expression
+
+For log2 fold changes between two groups of sizes $N_1$ and $N_0$ (for
+example, perturbation screens), $W = \sqrt{N_1 N_0} / (N_1 + N_0) \cdot \log_2 FC$.
+`N1` and `N0` are single values or one per variant (perturbation).
+
+```{r log2fc}
+log2fc <- z / 10
+W_fc <- w_construction(list(log2FC = log2fc, N1 = 100, N0 = 200))
+attr(W_fc, "input")
+```
+
+### Individual-level data
+
+With genotypes `G` and expression `E` (same samples in rows),
+$W = G^\top E / N$. Standardize both first so that $W$ holds correlations.
+
+```{r g-e}
+set.seed(1)
+G <- scale(matrix(rbinom(300 * 20, 2, 0.3), 300, 20,
+                  dimnames = list(NULL, paste0("rs", 1:20))))
+E <- scale(transmap_example$Y[, 1:30])
+W_ge <- w_construction(list(G = G, E = E))
+attr(W_ge, "input")
+dim(W_ge)
+```
+
+### A precomputed matrix
+
+Any precomputed variants $\times$ genes matrix can be supplied as `Sigma_GE`:
+
+```{r sigma-ge}
+W_pre <- w_construction(list(Sigma_GE = W))
+attr(W_pre, "input")
+all.equal(unname(W_pre), unname(W))
+```
+
+# 2. Whitening
+
+Correlation between variants (linkage disequilibrium) and between genes
+(co-expression) can make one signal appear in many rows and columns of $W$.
+Adding `Sigma_GG` (variant correlation) and/or `Sigma_EE` (gene correlation)
+whitens $W$:
+
+$$\tilde W = \Sigma_{GG}^{-1/2} \, W \, \Sigma_{EE}^{-1/2}.$$
+
+Pseudo inverse square roots are used, keeping the leading eigenvalues that
+explain at least a fraction `tol` (default 0.999) of the total.
+
+```{r whiten}
+W_white <- w_construction(list(Z = z, N = n,
+                               Sigma_EE = cor(transmap_example$Y)))
+dim(W_white)
+```
+
+With individual-level data, `"insample"` uses the sample covariance of `G` or
+`E`:
+
+```{r whiten-insample}
+W_ge_white <- w_construction(list(G = G, E = E, Sigma_EE = "insample"))
+dim(W_ge_white)
+```
+
+# 3. Masking *cis* pairs
+
+`exclude` is a logical matrix with the dimension of $W$; `TRUE` entries are set
+to zero (before whitening). A common use is to mask variant-gene pairs on the
+same chromosome, so that only *trans* associations drive the programs:
+
+```{r exclude}
+variant_chr <- rep(c("chr1", "chr2", "chr3"), each = 50)
+gene_chr <- rep(c("chr1", "chr2", "chr3"), length.out = ncol(z))
+cis <- outer(variant_chr, gene_chr, "==")
+W_trans <- w_construction(list(Z = z, N = n), exclude = cis)
+mean(W_trans == 0)
+```
+
+Restricting variants or genes to particular chromosomes (for example, a
+leave-one-chromosome-out analysis) is done by subsetting the statistics before
+building `data_list`.
+
+Continue with [Global Program Identification](Global_Program_Identification.html).
