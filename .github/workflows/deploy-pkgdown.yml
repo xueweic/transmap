@@ -1,13 +1,9 @@
-name: Publish package website manually
+name: Publish package website
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      publish:
-        description: Confirm that package documentation is ready for a public Pages site
-        type: boolean
-        required: true
-        default: false
 
 permissions:
   contents: read
@@ -20,7 +16,6 @@ concurrency:
 
 jobs:
   publish:
-    if: ${{ inputs.publish == true }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
