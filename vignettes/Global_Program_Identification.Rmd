@@ -1,0 +1,200 @@
+---
+title: "Global Program Identification"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Global Program Identification}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(transmap)
+data(transmap_example)
+data_list <- list(Z = transmap_example$z, N = transmap_example$n)
+```
+
+A global program is a sparse set of genes jointly associated with a sparse set
+of *trans* variants. `r_transcca()` finds programs by a sparse rank-$K$
+decomposition of the variants $\times$ genes matrix $W$ (see
+[Constructing the W Matrix](Constructing_W_Matrix.html)).
+
+# 1. The transCCA model
+
+With genotypes $G$ and expression $E$, the leading pair of canonical
+variables for variants ($u$) and genes ($v$) solves
+
+$$(u, v) = \arg\max_{u, v} \; u^\top G^\top E \, v = \arg\max_{u, v} \; u^\top W v.$$
+
+transCCA adds sparsity by penalized matrix decomposition (PMD; Witten et al.,
+2009):
+
+$$\max_{u, v} \; u^\top W v \quad \text{subject to} \quad
+\|u\|_2 \le 1, \; \|v\|_2 \le 1, \;
+\|u\|_1 \le c_u, \; \|v\|_1 \le c_v.$$
+
+The $L_1$ bounds are $c_u = \text{sumabs} \cdot \sqrt{P}$ and
+$c_v = \text{sumabs} \cdot \sqrt{G}$ for $P$ variants and $G$ genes, so a
+smaller `sumabs` gives sparser programs. After each program, $W$ is deflated,
+$W \leftarrow W - d_k u_k v_k^\top$, and the next program is fitted. Each
+program $k$ has
+
+- gene loadings $v_k$ (column $k$ of `V`): which genes are in the program;
+- variant loadings $u_k$ (column $k$ of `U`): which variants affect it;
+- a strength $d_k = u_k^\top W v_k$, reported as `d2_score` $= d_k^2$.
+
+# 2. Fit transCCA
+
+The example data has two simulated programs: variants 1-10 affect
+`GENE01`-`GENE12`, and variants 11-20 affect `GENE25`-`GENE36` and
+`GENE40`-`GENE45`.
+
+```{r fit}
+prog <- r_transcca(data_list, K = 2, sumabs = 0.25)
+names(prog)
+prog$d2_score
+```
+
+### Variant loadings
+
+```{r variants}
+lapply(seq_len(ncol(prog$U)), function(k) {
+  which(prog$U[, k] != 0)
+})
+```
+
+Both sets of causal variants are recovered exactly, each by its own program.
+
+### Gene loadings
+
+```{r genes}
+lapply(seq_len(ncol(prog$V)), function(k) {
+  v <- prog$V[, k]
+  v <- v[v != 0]
+  round(v[order(-abs(v))], 3)
+})
+```
+
+All selected genes belong to the simulated programs. At this sparsity level
+only the genes with the strongest associations are kept; a larger `sumabs`
+keeps more genes (Section 4).
+
+The sign of a program is arbitrary: $u_k$ and $v_k$ can flip sign together
+without changing $d_k$. Here program 1 has positive variant loadings and
+negative gene loadings, consistent with the negative simulated effects of
+variants 11-20. Interpret loadings by their magnitude and by the sign of $u_k$
+relative to $v_k$.
+
+# 3. Choosing the number of programs `K`
+
+When `K = NULL` (the default), `K` is chosen from the singular values of $W$:
+
+- `select_method = "max"` (default): the largest gap between consecutive
+  singular values;
+- `select_method = "var_explain"`: the smallest number whose cumulative
+  singular values exceed a fraction `var_exp` of the total.
+
+```{r singular, fig.width = 5, fig.height = 3.5}
+s <- prog$singular_values
+plot(s[1:15], type = "b", pch = 19, xlab = "Index",
+     ylab = "Singular value of W")
+which.max(-diff(s))
+```
+
+The largest gap follows the second singular value, matching the two simulated
+programs. `select_style = "eigen"` computes the values from the eigen
+decomposition of $W^\top W$ (or $W W^\top$) instead of the SVD.
+
+# 4. Choosing the sparsity `sumabs`
+
+Smaller `sumabs` gives sparser programs:
+
+```{r sparsity}
+sparsity <- t(sapply(c(0.15, 0.2, 0.25, 0.3, 0.4), function(s) {
+  fit <- r_transcca(data_list, K = 2, sumabs = s)
+  c(sumabs = s, genes = colSums(fit$V != 0), variants = colSums(fit$U != 0))
+}))
+sparsity
+```
+
+When `sumabs = NULL` (the default), it is chosen by cross-validation with
+`PMA::PMD.cv()` over a grid from $\max(1/\sqrt{P}, 1/\sqrt{G}) + 0.01$ to 0.8.
+Cross-validation is random, so set a seed:
+
+```{r cv}
+set.seed(1)
+prog_cv <- r_transcca(data_list)
+prog_cv$sparsity
+ncol(prog_cv$V)
+colSums(prog_cv$V != 0)
+```
+
+Cross-validation optimizes the reconstruction of $W$ and tends to favour denser
+programs than a fixed small `sumabs`. Choose a fixed `sumabs` when
+interpretable, sparse programs are the goal, and check the selected genes and
+variants.
+
+### A separate sparsity per program
+
+With `different_sparsity = TRUE`, the sparsity is re-tuned by cross-validation
+for every program on the deflated matrix. Programs whose tuned sparsity falls
+to the lower bound are set to zero, which acts as a stopping rule:
+
+```{r diff-sparsity}
+set.seed(1)
+prog_diff <- r_transcca(data_list, K = 3, different_sparsity = TRUE)
+round(prog_diff$sparsity, 3)
+round(prog_diff$d2_score, 3)
+```
+
+# 5. Other options
+
+- `normalization`: scale of `d2_score`. `"original"` (default) uses $W$ as is;
+  `"F_norm"` divides $W$ by its squared Frobenius norm; `"max"` divides by its
+  largest absolute entry. Use the same choice for observed and null fits.
+- `null_thres`: if the largest absolute entry of $W$ is below this value, no
+  program is fitted and `V`, `U`, `d` and `d2_score` are `NULL`.
+- `exclude`, `tol`, `sig_cut`: passed to `w_construction()`, e.g. to mask
+  *cis* pairs.
+- `...`: further arguments to `PMA::PMD()` when `different_sparsity = FALSE`.
+
+```{r exclude}
+variant_chr <- rep(c("chr1", "chr2", "chr3"), each = 50)
+gene_chr <- rep(c("chr1", "chr2", "chr3"), length.out = 60)
+cis <- outer(variant_chr, gene_chr, "==")
+prog_trans <- r_transcca(data_list, K = 2, sumabs = 0.25, exclude = cis)
+prog_trans$d2_score
+```
+
+# 6. Other input types
+
+Any `data_list` accepted by `w_construction()` works the same way. For example,
+individual-level data whitened by the in-sample expression covariance:
+
+```{r individual}
+set.seed(2)
+G <- scale(matrix(rbinom(300 * 20, 2, 0.3), 300, 20,
+                  dimnames = list(NULL, paste0("rs", 1:20))))
+E <- transmap_example$Y[, 1:30]
+E[, 1:12] <- E[, 1:12] + G[, 1]
+prog_ind <- r_transcca(list(G = G, E = scale(E), Sigma_EE = "insample"),
+                       K = 1, sumabs = 0.4)
+prog_ind$input
+head(sort(abs(prog_ind$U[, 1]), decreasing = TRUE), 3)
+```
+
+The variant with the simulated effect, `rs1`, has the largest loading.
+
+Continue with [Null Testing of Global Programs](Global_Program_Null_Testing.html).
+
+# Reference
+
+Witten DM, Tibshirani R, Hastie T (2009). A penalized matrix decomposition,
+with applications to sparse principal components and canonical correlation
+analysis. *Biostatistics* 10(3):515-534.

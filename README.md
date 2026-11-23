@@ -1,72 +1,36 @@
-# transmap
+[![R package check](https://github.com/xueweic/transmap/actions/workflows/R-CMD-check.yml/badge.svg)](https://github.com/xueweic/transmap/actions/workflows/R-CMD-check.yml)
 
-R package for TransMap, a framework for mapping distal genetic effects on
-individual genes and co-regulatory programs across cell types. transmap builds
-program phenotypes for trans-QTL mapping at two scales. All functions take
-in-memory matrices.
+![Overview of TransMap](man/figures/transmap.jpg)
 
-| Scale | Step 1: find programs | Step 2: program phenotypes |
-|-------|-----------------------|----------------------------|
-| Local | `r_hotspot(Y)`: gene modules (R implementation of Hotspot) | `transmap_local(Y, module, method = "WPC")`: WPC (default), PC1, aPC or AUCell |
-| Global | `r_transcca(data_list)`: sparse programs from a transBoost-style `data_list` (Z + N, Beta, Beta + N + P/se, log2FC, individual-level G + E, or Sigma_GE; optional whitening and cis masking), built into W by `w_construction()` | `transmap_global(Y, program)`: loading-weighted expression |
 
-```r
-library(transmap)
-data(transmap_example)
+This R package implements TransMap---motivated and designed for mapping distal genetic effects on individual genes and co-regulatory programs across cell types---as a multi-scale framework that builds program phenotypes for *trans*-QTL mapping. At the local scale (TransMap-local), it detects co-expression gene modules with an R implementation of Hotspot and summarizes each module by whitened principal components that account for background expression variation. At the global scale (TransMap-global), it identifies sparse gene programs jointly associated with sparse sets of *trans* variants by penalized matrix decomposition of variant-gene association statistics (transCCA), and assesses these programs against a simulated null distribution. The resulting program phenotypes improve the detection of weak, coordinated distal genetic effects.
 
-# Local programs
-hs  <- r_hotspot(transmap_example$Y, min_gene = 5)
-loc <- transmap_local(transmap_example$Y, hs, null_z = transmap_example$null_z)
+## Quick Start
 
-# Global programs
-prog <- r_transcca(list(Z = transmap_example$z, N = transmap_example$n), K = 3)
-glob <- transmap_global(transmap_example$Y, prog)
-
-# Null distribution and empirical p-values of the global programs
-null <- transcca_null(n_null = 20, n = transmap_example$n,
-                      p = nrow(transmap_example$z), maf = runif(1000, 0.05, 0.5),
-                      sigma_ee = cor(transmap_example$Y), K = 3,
-                      sumabs = prog$sparsity)
-transcca_pvalue(prog, null)
-transcca_plot(prog, null)
-```
-
-See the vignettes `transmap_local` and `transmap_global` for details.
-
-## Installation
+### GitHub Installation
+Install the development version from GitHub
 
 ```r
-remotes::install_github("xueweic/transmap")
+devtools::install_github("xueweic/transmap")
 ```
 
-AUCell (Bioconductor) is needed only for `method = "AUCell"`.
+For a detailed installation guidance, please refer to [Installation](https://xueweic.github.io/transmap/articles/installation.html).
 
-## Local development
 
-From the repository root:
+## Tutorial Website
 
-```sh
-R CMD INSTALL .
-R CMD build .
-R CMD check --no-manual transmap_*.tar.gz
-```
+Learn how to construct local and global program phenotypes for *trans*-QTL mapping with step-by-step examples. For detailed tutorials and use cases in [Tutorials](https://xueweic.github.io/transmap/articles/index.html).
 
-Regenerate documentation with `roxygen2::roxygenise()` and the example data
-with `Rscript data-raw/transmap_example.R`.
 
-## Repository layout
+## Citation
 
-- `R/`: package source and roxygen2 documentation.
-- `man/`: generated help files.
-- `data/`, `data-raw/`: simulated example data and the script that makes it.
-- `tests/testthat/`: package tests.
-- `vignettes/`: local and global program workflows.
-- `.github/workflows/`: package checks, site builds, and an opt-in Pages workflow.
+If you use TransMap in your research, please cite:
 
-The package website is configured but not published. The Pages workflow requires
-an explicit manual opt-in and GitHub Pages configuration. Review all content
-before publishing: a Pages site can be public even when its repository is
-private.
+> Cao X, Wang Y, Sun H, Feng R, Zhang H, Li Y, Lee H, Karaahmet B, Li B, Gersbach C, Crawford G, Taga M, Beeri MS, Buchman AS, Klein HU, de Jager PL, Bennett D, The Alzheimer's Disease Functional Genomics Consortium, Wang G, Dey KK. (2026+). A multi-scale cell-type resolved map of *trans*-regulatory architecture in the aging human brain. medRxiv. [https://doi.org/10.64898/2026.11.05.26367384](https://doi.org/10.64898/2026.11.05.26367384)
 
-The related figure and analysis repository is
-[`transmap_manuscript`](https://github.com/xueweic/transmap_manuscript).
+Code and data to reproduce the figures in the manuscript are available at [transmap_paper](https://github.com/xueweic/transmap_paper).
+
+
+## License
+
+Copyright (c) 2026 Xuewei Cao. All rights reserved. A release license will be selected before public release; see [LICENSE](LICENSE).

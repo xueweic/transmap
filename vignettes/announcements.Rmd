@@ -1,0 +1,20 @@
+---
+title: "News"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{News}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+## TransMap on the media
+
+- *November 2026*: Manuscript describing TransMap methods with applications to the aging human brain is posted on [medRxiv](https://doi.org/10.64898/2026.11.05.26367384). Code and data to reproduce the figures are available at [transmap_paper](https://github.com/xueweic/transmap_paper).
+
+## Software updates
+
+- `v0.1.0` Initial release of the `transmap` R package.
+  - TransMap-local: `r_hotspot()`, an R implementation of Hotspot for co-expression module detection, and `transmap_local()`, which summarizes modules into program phenotypes by whitened principal components (WPC, default), the first principal component (PC1), adaptive principal components (aPC) or AUCell scores.
+  - TransMap-global: `w_construction()` and `r_transcca()`, which identify sparse global programs from variant-gene association statistics in several input formats, and `transmap_global()`, which turns program gene loadings into program phenotypes.
+  - Null testing of global programs with `generate_null_data()`, `transcca_null()`, `transcca_pvalue()` and `transcca_plot()`.
+  - Simulated example data `transmap_example` and step-by-step tutorials.

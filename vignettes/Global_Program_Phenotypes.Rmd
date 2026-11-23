@@ -1,0 +1,110 @@
+---
+title: "Global Program Phenotypes"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Global Program Phenotypes}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(transmap)
+data(transmap_example)
+Y <- transmap_example$Y
+data_list <- list(Z = transmap_example$z, N = transmap_example$n)
+prog <- r_transcca(data_list, K = 2, sumabs = 0.25)
+```
+
+`transmap_global()` turns the gene loadings of global programs into program
+phenotypes. For expression $Y$ (samples $\times$ genes) and gene loadings $V$
+(genes $\times$ programs), the phenotypes are
+
+$$S = Y V,$$
+
+that is, for each sample, the expression of each program's genes weighted by
+their loadings. Genes with zero loading do not contribute.
+
+# 1. Build phenotypes from transCCA programs
+
+```{r global}
+glob <- transmap_global(Y, prog)
+names(glob)
+dim(glob$scores)
+head(round(glob$scores, 3), 3)
+```
+
+The result holds
+
+- `scores`: samples $\times$ programs matrix of program phenotypes;
+- `loadings`: the gene loadings restricted to the genes used;
+- `genes_used` and `genes_missing`: program genes present in and absent from
+  `Y`.
+
+# 2. Covariates and scaling
+
+With `covariates`, covariates and an intercept are regressed out of the
+expression before scoring. Only samples shared by `Y` and `covariates` are
+kept.
+
+```{r covariates}
+glob_adj <- transmap_global(Y, prog, covariates = transmap_example$covariates)
+dim(glob_adj$scores)
+```
+
+With `scale = TRUE`, each gene is standardized first, so that genes contribute
+according to their loadings rather than their expression variance:
+
+```{r scale}
+glob_std <- transmap_global(Y, prog, scale = TRUE)
+round(apply(glob_std$scores, 2, sd), 3)
+```
+
+# 3. Programs learned from another data set
+
+Programs can be learned from the association statistics of one set of samples
+and scored in the expression data of another (for example, an independent
+split of the cohort, another cohort or another cell type). Genes in the
+program that are missing from `Y` are ignored and reported:
+
+```{r missing}
+Y_sub <- Y[, setdiff(colnames(Y), c("GENE03", "GENE26"))]
+glob_sub <- transmap_global(Y_sub, prog)
+glob_sub$genes_missing
+```
+
+# 4. Custom loadings
+
+A plain genes $\times$ programs loading matrix with gene row names can be used
+instead of an `r_transcca()` result, for example only the programs that pass
+null testing (see [Null Testing of Global Programs](Global_Program_Null_Testing.html)),
+or programs from other methods:
+
+```{r custom}
+V_one <- prog$V[, "Program_1", drop = FALSE]
+glob_one <- transmap_global(Y, V_one)
+colnames(glob_one$scores)
+```
+
+# 5. Global and local phenotypes
+
+Local phenotypes summarize co-expression modules, without genotype
+information. Global phenotypes summarize genes chosen because they share
+*trans* associations with the same variants. The two scales are complementary
+and can be mapped together:
+
+```{r combine}
+hs <- r_hotspot(Y, min_gene = 5)
+loc <- transmap_local(Y, hs, null_z = transmap_example$null_z)
+pheno <- cbind(loc$scores, glob$scores)
+dim(pheno)
+```
+
+See [Trans-QTL Mapping with Program Phenotypes](Trans_QTL_Mapping_with_Programs.html)
+for how to use these phenotypes.

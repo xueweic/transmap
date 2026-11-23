@@ -1,0 +1,136 @@
+---
+title: "Null Testing of Global Programs"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Null Testing of Global Programs}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(transmap)
+data(transmap_example)
+data_list <- list(Z = transmap_example$z, N = transmap_example$n)
+prog <- r_transcca(data_list, K = 2, sumabs = 0.25)
+```
+
+transCCA always returns `K` programs, even when there is no variant-gene
+association. To decide which programs reflect real coordinated *trans*
+effects, compare each program's strength (`d2_score`) with its distribution
+under the null.
+
+# 1. Simulating null data
+
+`generate_null_data()` simulates genotypes and expression with no association
+between them:
+
+- each variant is drawn as Binomial(2, $f$), with allele frequency $f$
+  sampled from the density of the observed minor allele frequencies `maf`
+  (restricted to $0.01 < f < 0.5$), then standardized;
+- expression is drawn from $N(0, \Sigma_{EE})$, independently of the
+  genotypes, so the gene-gene correlation of the real data is kept.
+
+```{r null-data}
+set.seed(1)
+null_data <- generate_null_data(n = 100, p = 50,
+                                maf = runif(1000, 0.05, 0.5),
+                                sigma_ee = cor(transmap_example$Y))
+str(null_data[[1]])
+```
+
+Each replicate is a `data_list` of the form `list(G = , E = )`, so it can be
+passed straight to `r_transcca()`. `R > 1` simulates several independent data
+sets at once.
+
+# 2. Null distribution of program strengths
+
+`transcca_null()` simulates null data `n_null` times and fits `r_transcca()`
+with the same `K` and `sumabs` as the observed analysis. Match the observed
+analysis as closely as possible:
+
+- `n`: the sample size of the association statistics;
+- `p`: the number of variants in $W$;
+- `maf`: the minor allele frequencies of those variants;
+- `sigma_ee`: the gene correlation of the expression data;
+- `K`, `sumabs` and any `r_transcca()` options (passed through `...`, e.g.
+  `normalization`).
+
+```{r null}
+set.seed(3)
+null <- transcca_null(n_null = 50, n = transmap_example$n,
+                      p = nrow(transmap_example$z),
+                      maf = runif(1000, 0.05, 0.5),
+                      sigma_ee = cor(transmap_example$Y),
+                      K = 2, sumabs = 0.25)
+dim(null)
+round(colMeans(null), 3)
+```
+
+Keep `sumabs` fixed. With `sumabs = NULL`, every replicate is re-tuned by
+cross-validation, which is slow.
+
+When the observed analysis whitens expression by its in-sample covariance,
+use `method = "insample"` so that the null fits are whitened in the same way.
+
+# 3. Empirical p-values
+
+The p-value of program $k$ is the fraction of null replicates whose
+`d2_score` for program $k$ exceeds the observed one:
+
+```{r pvalue}
+prog$d2_score
+transcca_pvalue(prog, null)
+```
+
+With `n_null` replicates the smallest attainable non-zero p-value is
+$1 / n_\text{null}$, and a p-value of 0 means only that it is below that
+bound. Use enough replicates for the significance level of interest (for
+example, at least 1,000 for $\alpha = 0.005$).
+
+`transcca_pvalue()` also accepts a numeric vector of observed scores.
+
+# 4. Visualization
+
+`transcca_plot()` compares the observed scores with the null distribution and
+marks programs with p-value at or below `alpha`. It returns a summary table
+invisibly.
+
+### Bar plot
+
+The null mean of each program is drawn as a bar with $\pm 1.96$ SD error bars,
+the observed score as a red triangle and a blue star above significant
+programs.
+
+```{r plot-bar, fig.width = 5.5, fig.height = 4}
+tab <- transcca_plot(prog, null, alpha = 0.05)
+tab
+```
+
+### Box plot
+
+The null distribution of each program is drawn as a box plot, with the
+observed score as a red square:
+
+```{r plot-box, fig.width = 5.5, fig.height = 4}
+transcca_plot(prog, null, alpha = 0.05, type = "box")
+```
+
+# 5. Keeping significant programs
+
+Pass only significant programs to `transmap_global()`:
+
+```{r keep}
+pval <- transcca_pvalue(prog, null)
+keep <- names(pval)[pval <= 0.05]
+V_sig <- prog$V[, keep, drop = FALSE]
+dim(V_sig)
+```
+
+Continue with [Global Program Phenotypes](Global_Program_Phenotypes.html).

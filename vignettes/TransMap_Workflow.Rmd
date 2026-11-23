@@ -1,0 +1,133 @@
+---
+title: "End-to-End TransMap Workflow"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{End-to-End TransMap Workflow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(transmap)
+data(transmap_example)
+Y <- transmap_example$Y
+```
+
+This vignette walks through the full `transmap` workflow on the simulated
+example data. TransMap maps *trans*-acting genetic effects at three scales:
+
+- **TransMap-eGene**: individual distal genes, using each gene's expression as
+  the phenotype.
+- **TransMap-local**: co-regulatory programs, built from co-expression gene
+  modules.
+- **TransMap-global**: genome-wide coordinated programs, built from sparse sets
+  of genes jointly associated with sparse sets of *trans* variants.
+
+The package builds the program phenotypes of TransMap-local and
+TransMap-global. Each scale yields a samples $\times$ phenotypes matrix that is
+then used as the outcome of *trans*-QTL mapping.
+
+# 1. TransMap-local
+
+### Step 1: detect gene modules
+
+`r_hotspot()` finds genes whose expression is locally autocorrelated across
+samples and groups them into modules.
+
+```{r local-modules}
+hs <- r_hotspot(Y, min_gene = 5)
+lengths(hs$modules)
+```
+
+### Step 2: build local program phenotypes
+
+`transmap_local()` summarizes each module. The default, whitened principal
+components (WPC), removes gene-gene correlation expected under the null using
+null *trans* z-scores.
+
+```{r local-phenotypes}
+loc <- transmap_local(Y, hs, null_z = transmap_example$null_z,
+                      covariates = transmap_example$covariates)
+dim(loc$scores)
+loc$summary
+```
+
+# 2. TransMap-global
+
+### Step 1: identify global programs
+
+`r_transcca()` decomposes the variant $\times$ gene matrix of association
+statistics into sparse programs. Each program is a sparse set of genes (`V`)
+jointly associated with a sparse set of variants (`U`).
+
+```{r global-programs}
+data_list <- list(Z = transmap_example$z, N = transmap_example$n)
+prog <- r_transcca(data_list, K = 2, sumabs = 0.25)
+prog$d2_score
+colSums(prog$V != 0)   # genes per program
+colSums(prog$U != 0)   # variants per program
+```
+
+### Step 2: test programs against a null
+
+`transcca_null()` refits transCCA on simulated data with no variant-gene
+association, using the same `K` and `sumabs`.
+
+```{r global-null}
+set.seed(1)
+null <- transcca_null(n_null = 20, n = transmap_example$n,
+                      p = nrow(transmap_example$z),
+                      maf = runif(1000, 0.05, 0.5),
+                      sigma_ee = cor(Y), K = 2, sumabs = 0.25)
+transcca_pvalue(prog, null)
+```
+
+Twenty replicates keep this example fast; use many more in real analyses (see
+[Null Testing of Global Programs](Global_Program_Null_Testing.html)).
+
+### Step 3: build global program phenotypes
+
+`transmap_global()` weights the expression of each program's genes by their
+loadings.
+
+```{r global-phenotypes}
+glob <- transmap_global(Y, prog, covariates = transmap_example$covariates)
+dim(glob$scores)
+```
+
+# 3. Combine phenotypes for *trans*-QTL mapping
+
+The phenotypes from both scales, together with individual genes for
+TransMap-eGene, form the outcomes of *trans*-QTL mapping. Rows are matched by
+sample name.
+
+```{r combine}
+pheno <- cbind(loc$scores, glob$scores)
+dim(pheno)
+colnames(pheno)
+```
+
+See [Trans-QTL Mapping with Program Phenotypes](Trans_QTL_Mapping_with_Programs.html)
+for how to use these phenotypes in association testing, fine-mapping and
+colocalization.
+
+# Next steps
+
+- [Input Data Format](Input_Data_Format.html): what each function expects.
+- [Hotspot Module Detection](Hotspot_Module_Detection.html) and
+  [Local Program Phenotypes](Local_Program_Phenotypes.html): TransMap-local in
+  detail.
+- [Constructing the W Matrix](Constructing_W_Matrix.html),
+  [Global Program Identification](Global_Program_Identification.html),
+  [Null Testing of Global Programs](Global_Program_Null_Testing.html) and
+  [Global Program Phenotypes](Global_Program_Phenotypes.html):
+  TransMap-global in detail.
+- [The TransMap Framework](Conceptual_TransMap_Framework.html): the statistical
+  ideas behind each scale.
