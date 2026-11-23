@@ -4,3 +4,4 @@
 ^docs$
 ^\.Rproj\.user$
 ^data-raw$
+^pkgdown$

@@ -1,0 +1,15 @@
+/* Figures with captions (README header and tutorial figures) */
+.float {
+  margin: 1rem 0 2rem;
+}
+
+.float img {
+  display: block;
+  margin: 0 auto;
+}
+
+.float .figcaption {
+  margin-top: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
