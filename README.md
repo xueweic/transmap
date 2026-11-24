@@ -11,11 +11,10 @@ This R package implements TransMap---motivated and designed for mapping distal g
 Install the development version from GitHub
 
 ```r
-install.packages(c("susieR", "colocboost"))
 devtools::install_github("xueweic/transmap")
 ```
 
-[`susieR`](https://CRAN.R-project.org/package=susieR) (fine-mapping) and [`colocboost`](https://CRAN.R-project.org/package=colocboost) (multi-phenotype colocalization) are required and are installed from CRAN. Installing them first with `install.packages()` makes sure the CRAN releases are used, even if development versions were installed from GitHub before.
+This also installs the required packages [`susieR`](https://CRAN.R-project.org/package=susieR) (fine-mapping) and [`colocboost`](https://CRAN.R-project.org/package=colocboost) (multi-phenotype colocalization) from CRAN.
 
 For a detailed installation guidance, please refer to [Installation](https://xueweic.github.io/transmap/articles/installation.html).
 
