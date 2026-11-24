@@ -19,12 +19,14 @@ LazyDataCompression: xz
 Roxygen: list(markdown = TRUE)
 Depends: R (>= 4.0.0)
 Imports:
+    colocboost,
     graphics,
     MASS,
     Matrix,
     PMA,
     RANN,
     stats,
+    susieR,
     utils
 Suggests:
     AUCell,

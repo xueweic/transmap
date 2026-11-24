@@ -21,6 +21,7 @@ Install the development version from GitHub
 
 ```r
 # install.packages("devtools")
+install.packages(c("susieR", "colocboost"))   # CRAN releases
 devtools::install_github("xueweic/transmap")
 ```
 
@@ -37,8 +38,17 @@ R CMD INSTALL transmap
 ## Dependencies
 
 `transmap` requires R (>= 4.0.0). The following CRAN packages are installed
-automatically: `PMA` (penalized matrix decomposition), `RANN` (nearest
-neighbour search), `MASS` and `Matrix`.
+automatically with `transmap`:
+
+- `susieR`, for fine-mapping program phenotypes;
+- `colocboost`, for multi-phenotype colocalization;
+- `PMA` (penalized matrix decomposition), `RANN` (nearest neighbour search),
+  `MASS` and `Matrix`.
+
+`susieR` and `colocboost` are installed from CRAN. If a development version of
+either package was previously installed from GitHub, `install_github()` may
+update it from GitHub instead; running `install.packages(c("susieR",
+"colocboost"))` first, as above, replaces it with the CRAN release.
 
 The Bioconductor package `AUCell` is optional. It is needed only for
 `transmap_local(method = "AUCell")`:

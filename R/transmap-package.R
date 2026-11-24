@@ -19,5 +19,11 @@
 #' All functions take in-memory matrices; reading files, covariate selection
 #' and chromosome-specific filtering are left to the calling pipeline.
 #'
+#' Program phenotypes are fine-mapped with susieR and analysed by
+#' multi-phenotype colocalization with colocboost; both are installed with
+#' transmap from CRAN.
+#'
+#' @importFrom susieR susie
+#' @importFrom colocboost colocboost
 #' @keywords internal
 "_PACKAGE"

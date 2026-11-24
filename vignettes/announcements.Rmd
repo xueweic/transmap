@@ -18,3 +18,4 @@ vignette: >
   - TransMap-global: `w_construction()` and `r_transcca()`, which identify sparse global programs from variant-gene association statistics in several input formats, and `transmap_global()`, which turns program gene loadings into program phenotypes.
   - Null testing of global programs with `generate_null_data()`, `transcca_null()`, `transcca_pvalue()` and `transcca_plot()`.
   - Simulated example data `transmap_example` and step-by-step tutorials.
+  - `susieR` and `colocboost` are installed from CRAN as dependencies, for fine-mapping and multi-phenotype colocalization of program phenotypes.
