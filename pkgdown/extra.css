@@ -13,3 +13,9 @@
   font-weight: 700;
   text-align: center;
 }
+
+/* Homepage header figure (no caption) */
+main img[src$="transmap.jpg"] {
+  display: block;
+  margin: 1rem auto 2rem;
+}
