@@ -2,7 +2,11 @@ Package: transmap
 Type: Package
 Title: Multiscale Mapping of Trans-Regulatory QTL
 Version: 0.1.0
-Authors@R: person("Xuewei", "Cao", email = "xc2270@cumc.columbia.edu", role = c("aut", "cre"))
+Authors@R: c(
+    person("Xuewei", "Cao", email = "xc2270@cumc.columbia.edu",
+           role = c("aut", "cre")),
+    person("Gao", "Wang", role = "aut"),
+    person("Kushal K.", "Dey", role = "aut"))
 Description: Builds program phenotypes for trans-QTL mapping at two scales.
     Local programs summarize co-expression gene modules, detected with an R
     implementation of Hotspot, by whitened principal components (WPC), the

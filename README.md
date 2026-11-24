@@ -1,6 +1,6 @@
 [![R package check](https://github.com/xueweic/transmap/actions/workflows/R-CMD-check.yml/badge.svg)](https://github.com/xueweic/transmap/actions/workflows/R-CMD-check.yml)
 
-![Overview of TransMap](man/figures/transmap.jpg)
+<p><img src="man/figures/transmap.jpg" alt="Overview of TransMap" width="100%"></p>
 
 
 This R package implements TransMap---motivated and designed for mapping distal genetic effects on individual genes and co-regulatory programs across cell types---as a multi-scale framework that builds program phenotypes for *trans*-QTL mapping. At the local scale (TransMap-local), it detects co-expression gene modules with an R implementation of Hotspot and summarizes each module by whitened principal components that account for background expression variation. At the global scale (TransMap-global), it identifies sparse gene programs jointly associated with sparse sets of *trans* variants by penalized matrix decomposition of variant-gene association statistics (transCCA), and assesses these programs against a simulated null distribution. The resulting program phenotypes improve the detection of weak, coordinated distal genetic effects.
